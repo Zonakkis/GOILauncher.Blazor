@@ -387,3 +387,9 @@ FodyWeavers.xsd
 /Backend.AzureFunction/Data/SupaBaseDbContext.cs
 /Backend.AzureFunction/Constants/LeanCloudConstants.cs
 /Backend.AzureFunction/Constants/SQLConstants.cs
+/Backend.AzureFunction/Apis/Maps/List.cs
+/Backend.AzureFunction/Apis/Speedruns/SpeedrunController.cs
+/Backend.AzureFunction/Properties/launchSettings.json
+/Backend.AzureFunction/Properties/ServiceDependencies/GOILauncher - One Deploy/profile.arm.json
+/Backend.AzureFunction/Properties/serviceDependencies.json
+/Backend.AzureFunction/Properties/serviceDependencies.local.json
