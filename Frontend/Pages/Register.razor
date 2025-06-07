@@ -1,0 +1,87 @@
+﻿@page "/register"
+@using Shared.Models.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+<PageTitle>注册</PageTitle>
+<MudGrid Justify="Justify.Center" Class="mt-5">
+    <MudItem md="6">
+        <MudForm @ref="form" @bind-IsValid="@registerable">
+            <MudGrid Justify="Justify.Center">
+                <MudItem md="12">
+                    <MudTextField T="string" @bind-Value="username" Label="用户名"
+                    Variant="Variant.Outlined"
+                    Required="true" RequiredError="用户名是必填的哦！" />
+                </MudItem>
+                <MudItem md="12">
+                    <MudTextField T="string" @ref="passwordTextField" Label="密码"
+                    Variant="Variant.Outlined" InputType="@passwordInputType"
+                    Adornment="Adornment.End" AdornmentIcon="@passwordVisibility"
+                    OnAdornmentClick="PasswordVisibilityToggle"
+                    Required="true" RequiredError="密码是必填的哦！" />
+                </MudItem>
+                <MudItem md="12">
+                    <MudTextField T="string" Label="密码" InputType="InputType.Password"
+                    HelperText="请再次输入密码。" HelperTextOnFocus="true"
+                    Variant="Variant.Outlined"
+                    Required="true" RequiredError="密码是必填的哦！"
+                    Validation="@(new Func<string,string?>(PasswordMatch))" />
+                </MudItem>
+                <MudItem md="4" />
+                <MudItem md="4" Class="d-flex align-center justify-center">
+                    <MudButton Disabled="@(!registerable)" Onclick="RegisterUser"
+                    Variant="Variant.Filled" Color="Color.Primary">
+                        注册
+                    </MudButton>
+                </MudItem>
+                <MudItem md="4" Class="d-flex align-center justify-end">
+                    <MudLink Href="/login">已经有账号了？去登录</MudLink>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudItem>
+</MudGrid>
+@code {
+    private bool registerable;
+    private MudForm form;
+    private string username = string.Empty;
+    private MudTextField<string> passwordTextField;
+    private InputType passwordInputType = InputType.Password;
+    private string passwordVisibility = Icons.Material.Filled.VisibilityOff;
+
+    private string? PasswordMatch(string password)
+    {
+        return passwordTextField.Value != password ? "两次输入的密码不一致。" : null;
+    }
+
+    private void PasswordVisibilityToggle()
+    {
+        if (passwordVisibility == Icons.Material.Filled.VisibilityOff)
+        {
+            passwordInputType = InputType.Text;
+            passwordVisibility = Icons.Material.Filled.Visibility;
+        }
+        else
+        {
+            passwordInputType = InputType.Password;
+            passwordVisibility = Icons.Material.Filled.VisibilityOff;
+        }
+    }
+
+    private async Task RegisterUser()
+    {
+        var registerRequest = new RegisterRequest
+            {
+                Username = username,
+                Password = passwordTextField.Value!
+            };
+        var response = await Http.PostAsJsonAsync("api/user/register", registerRequest);
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("注册成功！前往登录页中……",Severity.Success);
+            Navigation.NavigateTo("/login");
+        }
+        else
+            Snackbar.Add($"注册失败：[{response.StatusCode}]{await response.Content.ReadAsStringAsync()}", Severity.Error);
+    }
+}

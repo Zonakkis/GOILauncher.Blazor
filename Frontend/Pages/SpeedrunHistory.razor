@@ -1,0 +1,151 @@
+﻿@page "/speedrun-history"
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using Frontend.Models
+@using Shared.Models.DTOs
+@using Shared.Models.Entities
+@using Frontend.Extensions
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+<PageTitle>地图</PageTitle>
+<MudStack>
+    <MudStack Row AlignItems="AlignItems.Center">
+        <MudSelect T="Category" @bind-Value="_category" Label="模式" Variant="Variant.Outlined">
+            @foreach (Category category in Enum.GetValues(typeof(Category)))
+            {
+                <MudSelectItem Value="@category">@category</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="Platform" @bind-Value="_platform" Label="游戏平台" Variant="Variant.Outlined">
+            @foreach (Platform platform in Enum.GetValues(typeof(Platform)))
+            {
+                <MudSelectItem Value="@platform">@platform</MudSelectItem>
+            }
+        </MudSelect>
+        <MudDateRangePicker @bind-DateRange="_dateRange" Label="日期范围" Variant="Variant.Outlined"
+                            MinDate="@_minDate" MaxDate="@_maxDate" />
+        <MudNumericField T="int" @bind-value="_topN" Label="前N名" Variant="Variant.Outlined"
+                         Min="1" />
+        <MudSelect T="DateSpan" @bind-value="_dateSpan" Label="时间跨度" Variant="Variant.Outlined">
+            @foreach (DateSpan dateSpan in Enum.GetValues(typeof(DateSpan)))
+            {
+                <MudSelectItem Value="@dateSpan">@dateSpan.ToStringWithoutUnderline()</MudSelectItem>
+            }
+        </MudSelect>
+        <MudButton Color="@(_isRunning? Color.Error: Color.Primary)" Variant="Variant.Filled"
+                   OnClick="@(_isRunning ? Stop : Start)">
+            @(_isRunning ? "结束" : "开始")
+        </MudButton>
+        <MudButton Color="@(_isPaused? Color.Success: Color.Warning)" Variant="Variant.Filled"
+                   Disabled="@(!_isRunning)" OnClick="TogglePause">
+            @(_isPaused ? "继续" : "暂停")
+        </MudButton>
+    </MudStack>
+    <div id="speedrunChart" style="width:100%; height:600px"></div>
+</MudStack>
+@code {
+    private Category _category = Category.Glitchless;
+    private Platform _platform = Platform.Any;
+    private readonly DateTime _minDate = new(2017, 10, 9);
+    private readonly DateTime _maxDate = DateTime.Now;
+    private DateRange _dateRange;
+    private int _topN = 10;
+    private DateSpan _dateSpan = DateSpan._1天;
+    private DateTime _currentDate;
+    private bool _isRunning;
+    private bool _isPaused;
+    private readonly Dictionary<Category, List<Speedrun>> _speedruns = [];
+    private readonly JsonSerializerOptions jsonSerializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters =
+        {
+            new JsonStringEnumConverter()
+        }
+    };
+
+    public SpeedrunHistory()
+    {
+        _dateRange = new DateRange(_minDate, _maxDate);
+    }
+    public void Start()
+    {
+        if (_isRunning)
+            return;
+        _isRunning = true;
+        _ = Task.Run(async () =>
+        {
+            if (!_speedruns.ContainsKey(_category))
+            {
+                _speedruns.Add(_category, await Http.GetFromJsonAsync<List<Speedrun>>(
+                $"data/{_category}.json", jsonSerializerOptions) ?? []);
+            }
+            if (_dateRange.Start is { } start)
+            {
+                _currentDate = start;
+                while (_isRunning)
+                {
+                    while (!_isPaused && _isRunning)
+                    {
+                        var speedruns = GetSpeedruns(_category, _platform, _currentDate, _topN);
+                        var data = from speedrun in speedruns
+                                   select new D3Data
+                                   {
+                                       AvatarUrl = $"https://www.speedrun.com/images/flags/{speedrun.Area}.png",
+                                       Name = speedrun.Player,
+                                       Platform = speedrun.Platform,
+                                       Value = speedrun.Time
+                                   };
+                        await JS.InvokeVoidAsync("updateChart",
+                        "speedrunChart", data, _currentDate);
+                        if (_currentDate > _dateRange.End)
+                        {
+                            Stop();
+                            return;
+                        }
+                        _currentDate = _dateSpan.GetUnit() switch
+                        {
+                            '天' => _currentDate.AddDays(_dateSpan.GetValue()),
+                            '月' => _currentDate.AddMonths(_dateSpan.GetValue()),
+                            _ => _currentDate
+                        };
+                        await Task.Delay(1000);
+                    }
+                    if (_isRunning && _isPaused)
+                        await Task.Delay(500);
+                }
+            }
+        });
+    }
+    public void Stop()
+    {
+        _isRunning = false;
+        _isPaused = false;
+    }
+    public void TogglePause()
+    {
+        _isPaused = !_isPaused;
+    }
+    public List<Speedrun> GetSpeedruns(Category category, Platform platform, DateTime dateTo, int limit)
+    {
+        var speedruns = _speedruns[category];
+        var query =
+                from speedrun in speedruns
+                where speedrun.Date <= dateTo
+                      && (platform == Platform.Any || speedrun.Platform == platform.ToString())
+                group speedrun by speedrun.Player into g
+                select new
+                {
+                    Player = g.Key,
+                    MinTime = g.Min(r => r.Time)
+                };
+
+        return (
+            from speedrun in speedruns
+            join q in query on new { speedrun.Player, speedrun.Time } equals new { q.Player, Time = q.MinTime }
+            orderby speedrun.Time
+            select speedrun
+        ).Take(limit).ToList();
+    }
+}

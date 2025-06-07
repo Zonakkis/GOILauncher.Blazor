@@ -1,0 +1,118 @@
+﻿@page "/maps"
+@using System.Text.RegularExpressions
+@using Frontend.Models
+@using Frontend.Models.DTOs
+@using Frontend.Models.DTOs.AList.fs.get
+@using Frontend.Models.DTOs.AList.fs.list
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+<PageTitle>地图</PageTitle>
+<MudStack>
+    <MudStack Row>
+        <MudSelect T="GamePlatform" Label="游戏平台" Value="_gamePlatform" Variant="Variant.Outlined"
+                   ValueChanged="OnGamePlatformChanged">
+            @foreach (GamePlatform gamePlatform in Enum.GetValues(typeof(GamePlatform)))
+            {
+                <MudSelectItem Value="@gamePlatform">@gamePlatform</MudSelectItem>
+            }
+        </MudSelect>
+    </MudStack>
+    <MudDataGrid Items="@_maps[_gamePlatform]" Filterable="true" Striped="true" Loading="@_isLoading">
+        <Columns>
+            <TemplateColumn>
+                <CellTemplate>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary"
+                               OnClick="@(() =>DownloadMap(context.Item))">
+                        下载
+                    </MudButton>
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Title="名字" Property="map => map.Name" />
+            <PropertyColumn Title="作者" Property="map => map.Author" />
+            <PropertyColumn Title="大小" Property="map => map.FormattedSize" SortBy="map => map.Size" />
+        </Columns>
+    </MudDataGrid>
+</MudStack>
+
+@code {
+    private bool _isLoading;
+    private GamePlatform _gamePlatform = GamePlatform.Windows;
+    private const string _mapItemRegex = @"^(.*?)\s+by\s+(.+?)\.zip$";
+    private readonly Dictionary<GamePlatform, List<Map>> _maps = new()
+    {
+        [GamePlatform.Windows] = [],
+        [GamePlatform.安卓] = []
+
+    };
+    private readonly Dictionary<GamePlatform, string> _mapPaths = new()
+    {
+        [GamePlatform.Windows] = "/PC版地图",
+        [GamePlatform.安卓] = "/安卓版地图"
+    };
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMapsAsync();
+    }
+    private async Task OnGamePlatformChanged(GamePlatform gamePlatform)
+    {
+        _gamePlatform = gamePlatform;
+        await LoadMapsAsync();
+    }
+    private async Task LoadMapsAsync()
+    {
+        var maps = _maps[_gamePlatform];
+        if (maps.Count != 0)
+            return;
+        try
+        {
+            _isLoading = true;
+            var path = _mapPaths[_gamePlatform];
+            var request = new AListRequest { Path = path };
+            var response = await Http.PostAsJsonAsync("https://cloud.cgoi.cc/api/fs/list", request);
+            if (response.IsSuccessStatusCode)
+            {
+                var AListResponse = await response.Content.ReadFromJsonAsync<AListFileListResponse>();
+                if (AListResponse is { Code: 200, Data.Content: { } items })
+                {
+                    foreach (var item in items)
+                    {
+                        var match = Regex.Match(item.Name, _mapItemRegex);
+                        if (match.Success)
+                        {
+                            maps.Add(new Map
+                            {
+                                Name = match.Groups[1].Value,
+                                Author = match.Groups[2].Value,
+                                Size = item.Size,
+                                Path = $"{path}/{item.Name}"
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Snackbar.Add($"加载地图列表失败：{e.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+    private async Task DownloadMap(Map map)
+    {
+        var request = new AListRequest { Path = map.Path };
+        var response = await Http.PostAsJsonAsync("https://cloud.cgoi.cc/api/fs/get", request);
+        if (response.IsSuccessStatusCode)
+        {
+            var AListResponse = await response.Content.ReadFromJsonAsync<AlistFileGetResponse>();
+            if (AListResponse is { Code: 200, Data: { } data })
+            {
+                await JS.InvokeVoidAsync("open", data.RawUrl, "_blank");
+            }
+        }
+    }
+
+}
