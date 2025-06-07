@@ -376,3 +376,14 @@ FodyWeavers.xsd
 /Backend/Controllers/SpeedrunController.cs
 /Backend/Controllers/WeatherForecastController.cs
 /Backend/appsettings.Development.json
+/Backend.AzureFunction/.gitignore
+/Backend.AzureFunction/host.json
+/Backend.AzureFunction/Program.cs
+/Backend.AzureFunction/Services/Interfaces/ISpeedrunService.cs
+/Backend.AzureFunction/Services/SpeedrunService.cs
+/Backend.AzureFunction/Repositories/Interfaces/ILeanCloudRepository.cs
+/Backend.AzureFunction/Repositories/LeanCloudRepository.cs
+/Backend.AzureFunction/Repositories/SpeedrunRepository.cs
+/Backend.AzureFunction/Data/SupaBaseDbContext.cs
+/Backend.AzureFunction/Constants/LeanCloudConstants.cs
+/Backend.AzureFunction/Constants/SQLConstants.cs
