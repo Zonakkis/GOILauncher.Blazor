@@ -375,3 +375,4 @@ FodyWeavers.xsd
 /Backend/Data/SupaBaseDbContext.cs
 /Backend/Controllers/SpeedrunController.cs
 /Backend/Controllers/WeatherForecastController.cs
+/Backend/appsettings.Development.json
