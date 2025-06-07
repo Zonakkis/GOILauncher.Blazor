@@ -363,3 +363,15 @@ MigrationBackup/
 FodyWeavers.xsd
 /Backend/Backend.csproj
 /Backend.AzureFunction/Backend.AzureFunction.csproj
+/Backend/Properties/launchSettings.json
+/Backend/Constants/SQLConstants.cs
+/Backend/appsettings.json
+/Backend/Backend.http
+/Backend/Program.cs
+/Backend/Services/SpeedrunService.cs
+/Backend/WeatherForecast.cs
+/Backend/Services/Interfaces/ISpeedrunService.cs
+/Backend/Repositories/SpeedrunRepository.cs
+/Backend/Data/SupaBaseDbContext.cs
+/Backend/Controllers/SpeedrunController.cs
+/Backend/Controllers/WeatherForecastController.cs
